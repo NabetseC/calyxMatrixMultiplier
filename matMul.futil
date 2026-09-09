@@ -1,0 +1,161 @@
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells{
+        @external arr1 = comb_mem_d2(32, 6, 5, 32, 32);
+        @external arr2 = comb_mem_d2(32, 5, 7, 32, 32);
+        @external arrOut = comb_mem_d2(32, 6, 7, 32, 32);
+        
+        i = std_reg(32);
+        j = std_reg(32);
+        k = std_reg(32);
+
+        ltI = std_lt(32);
+        add1 = std_add(32); 
+
+        ltJ = std_lt(32);
+        add2 = std_add(32); 
+
+        ltK = std_lt(32);
+        add3 = std_add(32); 
+
+        multE = std_mult_pipe(32);
+        outE = std_reg(32);
+        addOut = std_add(32);
+
+        element1 = std_reg(32);
+        element2 = std_reg(32);
+
+    }
+
+    wires{
+
+        static<1> group initI {
+            i.in = 32'd0;
+            i.write_en = 1'd1;
+        }
+        group initJ {
+            j.in = 32'd0;
+            j.write_en = 1'd1;
+            initJ[done] = j.done;
+        }
+        group initK {
+            k.in = 32'd0;
+            k.write_en = 1'd1;
+            initK[done] = k.done;
+        }
+        
+
+        /*comb group condI {
+            ltI.left = i.out;
+            ltI.right = 32'd6;
+        }*/
+
+        group incrI {
+            add1.left = i.out;
+            add1.right = 32'd1;
+            i.in = add1.out;
+            i.write_en = 1'd1;
+            incrI[done] = i.done;
+        }
+
+        /*comb group condJ {
+            ltJ.left = j.out;
+            ltJ.right = 32'd7;
+        }*/
+
+        group incrJ {
+            add2.left = j.out;
+            add2.right = 32'd1;
+            j.in = add2.out;
+            j.write_en = 1'd1;
+            incrJ[done] = j.done;
+        }
+
+        /*comb group condK {
+            ltK.left = k.out;
+            ltK.right = 32'd5;
+        }*/
+
+        group incrK {
+            add3.left = k.out;
+            add3.right = 32'd1;
+            k.in = add3.out;
+            k.write_en = 1'd1;
+            incrK[done] = k.done;
+        }
+
+        group incrOut {
+            addOut.left = multE.out;
+            addOut.right = outE.out;
+            outE.in = addOut.out;
+            outE.write_en = 1'd1;
+            incrOut[done] = outE.done;
+        }
+
+        group initOut {
+            outE.in = 32'd0;
+            outE.write_en = 1'd1;
+            initOut[done] = outE.done;
+        }
+        group loadElement1 { 
+            arr1.addr0 = i.out;
+            arr1.addr1 = k.out;
+
+            element1.in = arr1.read_data;
+            element1.write_en = 1'd1;
+            loadElement1[done] = element1.done;
+        }
+        group loadElement2 { 
+            arr2.addr0 = k.out;
+            arr2.addr1 = j.out;
+
+            element2.in = arr2.read_data;
+            element2.write_en = 1'd1;
+            loadElement2[done] = element2.done;
+        }
+
+        group writeArrOut {
+            arrOut.addr0 = i.out;
+            arrOut.addr1 = j.out;
+            arrOut.write_en = 1'd1;
+            arrOut.write_data = outE.out;
+            writeArrOut[done] = arrOut.done;
+        }
+    }
+
+    control {
+        seq{
+            initI;
+            repeat 6 {
+                seq{
+                    initJ;
+                    repeat 7{
+                        seq{
+                            initK;
+                            initOut;
+                            repeat 5{
+                                seq{
+                                    loadElement1;
+                                    loadElement2;
+                                    invoke multE(left = element1.out, right = element2.out)();
+                                    par {
+                                        incrOut;
+                                        incrK;
+                                    }
+                                }
+                            }
+                            writeArrOut;
+                            incrJ;
+                        } 
+                    }
+                    incrI; 
+                }
+            }
+        }
+    }
+
+}
